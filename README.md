@@ -8,3 +8,4 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [Matrix Multiplication](https://leetgpu.com/challenges/matrix-multiplication) | [Link](./matrix_multiplication.cu) | Easy |
 [Matrix Transpose](https://leetgpu.com/challenges/matrix-transpose) | [Link](./matrix_transpose.cu) | Easy |
 [Softmax](https://leetgpu.com/challenges/softmax) | [Link](./softmax.cu) | Easy |
+[Color Inversion](https://leetgpu.com/challenges/color-inversion) | [Link](./color_inversion.cu) | Easy |
