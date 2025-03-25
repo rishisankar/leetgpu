@@ -23,5 +23,4 @@ void solve(unsigned char* image, int width, int height) {
     unsigned int *ptr = reinterpret_cast<unsigned int *>(image);
 
     invert_kernel<<<blocksPerGrid, threadsPerBlock>>>(ptr, N);
-    cudaDeviceSynchronize();
 }

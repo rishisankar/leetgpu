@@ -14,5 +14,4 @@ void solve(const float* A, const float* B, float* C, int N) {
     int blocksPerGrid = (N + threadsPerBlock - 1) / threadsPerBlock;
 
     vector_add<<<blocksPerGrid, threadsPerBlock>>>(A, B, C, N);
-    cudaDeviceSynchronize();
 }

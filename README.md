@@ -11,3 +11,4 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [Color Inversion](https://leetgpu.com/challenges/color-inversion) | [Link](./color_inversion.cu) | Easy |
 [1D Convolution](https://leetgpu.com/challenges/1d-convolution) | [Link](./1d_convolution.cu) | Easy |
 [Reverse Array](https://leetgpu.com/challenges/reverse-array) | [Link](./reverse_array.cu) | Easy |
+[ReLU Activation](https://leetgpu.com/challenges/relu-activation) | [Link](./relu_activation.cu) | Easy |

@@ -89,6 +89,5 @@ __global__ void softmax_kernel(const float* input, float* output, int N) {
 // input, output are device pointers (i.e. pointers to memory on the GPU)
 void solve(const float* input, float* output, int N) {
     softmax_kernel<<<1, THREADS_PER_BLOCK>>>(input, output, N);
-    cudaDeviceSynchronize();
 }
 

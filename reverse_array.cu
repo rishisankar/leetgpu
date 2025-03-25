@@ -16,5 +16,4 @@ void solve(float* input, int N) {
     int blocksPerGrid = (N/2 + threadsPerBlock - 1) / threadsPerBlock;
 
     reverse_array<<<blocksPerGrid, threadsPerBlock>>>(input, N);
-    cudaDeviceSynchronize();
 }

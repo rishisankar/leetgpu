@@ -34,5 +34,4 @@ void solve(const float* input, const float* kernel, float* output, int input_siz
     int blocksPerGrid = output_size;
 
     convolution_1d_kernel<<<blocksPerGrid, threadsPerBlock>>>(input, kernel, output, input_size, kernel_size);
-    cudaDeviceSynchronize();
 }

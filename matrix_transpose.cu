@@ -19,5 +19,4 @@ void solve(const float* input, float* output, int rows, int cols) {
                        (rows + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
     matrix_transpose_kernel<<<blocksPerGrid, threadsPerBlock>>>(input, output, rows, cols);
-    cudaDeviceSynchronize();
 }
