@@ -13,4 +13,6 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [ReLU Activation](https://leetgpu.com/challenges/relu-activation) | [Link](./relu_activation.cu) | Easy |
 [Leaky ReLU](https://leetgpu.com/challenges/leaky-relu) | [Link](./leaky_relu.cu) | Easy |
 [Rainbow Table](https://leetgpu.com/challenges/rainbow-table) | [Link](./rainbow_table.cu) | Easy |
+[Reduction](https://leetgpu.com/challenges/reduction) | [Link](./reduction.cu) | Medium |
 [Softmax](https://leetgpu.com/challenges/softmax) | [Link](./softmax.cu) | Medium |
+[Dot Product](https://leetgpu.com/challenges/dot-product) | [Link](./dot_product.cu) | Medium |
