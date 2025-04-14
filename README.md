@@ -16,3 +16,4 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [Reduction](https://leetgpu.com/challenges/reduction) | [Link](./reduction.cu) | Medium |
 [Softmax](https://leetgpu.com/challenges/softmax) | [Link](./softmax.cu) | Medium |
 [Dot Product](https://leetgpu.com/challenges/dot-product) | [Link](./dot_product.cu) | Medium |
+[Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | [Link](./softmax_attention.cu) | Medium |
