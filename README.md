@@ -17,3 +17,4 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [Softmax](https://leetgpu.com/challenges/softmax) | [Link](./softmax.cu) | Medium |
 [Dot Product](https://leetgpu.com/challenges/dot-product) | [Link](./dot_product.cu) | Medium |
 [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | [Link](./softmax_attention.cu) | Medium |
+[Password Cracking (FNV-1a)](https://leetgpu.com/challenges/password-cracking-fnv-1a) | [Link](./password_cracking_fnv_1a.cu) | Medium |
