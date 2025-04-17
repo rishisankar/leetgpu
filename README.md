@@ -15,6 +15,7 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [Rainbow Table](https://leetgpu.com/challenges/rainbow-table) | [Link](./rainbow_table.cu) | Easy |
 [Reduction](https://leetgpu.com/challenges/reduction) | [Link](./reduction.cu) | Medium |
 [Softmax](https://leetgpu.com/challenges/softmax) | [Link](./softmax.cu) | Medium |
+[Prefix Sum](https://leetgpu.com/challenges/prefix-sum) | [Link](./prefix_sum.cu) | Medium |
 [Dot Product](https://leetgpu.com/challenges/dot-product) | [Link](./dot_product.cu) | Medium |
 [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | [Link](./softmax_attention.cu) | Medium |
 [Password Cracking (FNV-1a)](https://leetgpu.com/challenges/password-cracking-fnv-1a) | [Link](./password_cracking_fnv_1a.cu) | Medium |
