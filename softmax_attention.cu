@@ -12,7 +12,7 @@ O: Mxd
 l,m: Mx1
 */
 
-constexpr int SRAM_SIZE = 4000;
+constexpr int SRAM_SIZE = 9000;
 // To store the vectors li and mi, we need at most
 // d entries, which is at most 1024
 constexpr int MAX_VECTOR_SIZE = 1024;
@@ -49,9 +49,12 @@ __device__ void matrix_block_load(
  * Load a block of the matrix from src to dst, and transpose it.
  * src intended to be global, dst intended to be shared memory.
  * Matrix is size MxN
+ * Loop block size is the size of the current block, either block size
+ * or can be less for the very last block if block size not a divisor of M.
+ * Output will be size N x loop_block_size.
  */
  __device__ void matrix_block_load_transpose(
-    float* dst, // will be size loop_block_size x N but transposed
+    float* dst,
     const float* src, 
     int M,
     int N,
@@ -65,10 +68,10 @@ __device__ void matrix_block_load(
     int num_elts = M * N;
     int block_start = block_idx * block_size * N;
     int block_end = block_start + block_size * N;
-    for (int i = block_start + tid; i < block_end; i += num_threads) {
+    for (int i = block_start + tid; i < min(block_end, num_elts); i += num_threads) {
         int r = (i - block_start) / N;
         int c = i % N;
-        dst[c * loop_block_size + r] = (i < num_elts) ? src[i] : 0;
+        dst[c * loop_block_size + r] = src[i];
     }
 }
 
@@ -246,7 +249,7 @@ __device__ void Oi_update(
     int num_elts = Br * d;
     for (int i = tid; i < num_elts; i += num_threads) {
         int r = i / d;
-        Oi[i] = exp(mi_prev[r] - mi_cur[r]) * Oi[i];
+        Oi[i] *= exp(mi_prev[r] - mi_cur[r]);
     }
     matrix_multiply<true>(Pi, VT, Oi, Br, d, Bc);
 }
