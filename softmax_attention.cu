@@ -12,7 +12,7 @@ O: Mxd
 l,m: Mx1
 */
 
-constexpr int SRAM_SIZE = 9000;
+constexpr int SRAM_SIZE = 55000;
 // To store the vectors li and mi, we need at most
 // d entries, which is at most 1024
 constexpr int MAX_VECTOR_SIZE = 1024;
@@ -341,6 +341,8 @@ __global__ void flash_attention_2_kernel(
 
 // Q, K, V, output are device pointers
 void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
+    // only for H100
+    cudaFuncSetAttribute(flash_attention_2_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, 232448);
     int Bc = ceildiv(SRAM_SIZE, 4 * d);
     int Br = min(Bc, d);
     int Tr = ceildiv(M, Br);
