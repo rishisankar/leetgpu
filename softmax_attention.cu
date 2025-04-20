@@ -12,7 +12,11 @@ O: Mxd
 l,m: Mx1
 */
 
-constexpr int SRAM_SIZE = 55000;
+// for H100
+// constexpr int SRAM_SIZE = 55000;
+// for Tesla T4
+constexpr int SRAM_SIZE = 7000;
+
 // To store the vectors li and mi, we need at most
 // d entries, which is at most 1024
 constexpr int MAX_VECTOR_SIZE = 1024;
@@ -302,47 +306,48 @@ __global__ void flash_attention_2_kernel(
     float* mi_prev = mi; // m(i,j-1)
     float* mi_cur = mi2; // m(i,j)
 
-    for (int i = 0; i < Tr; i++) {
-        int loopBr = min(Br, M - i * Br);
-        matrix_block_load(Qi, Q, M, d, Br, i);
-        array_fill(Oi, 0, loopBr * d);
-        array_fill(li, 0, loopBr);
-        array_fill(mi_prev, NEGATIVE_INF, loopBr);
+    int i = blockIdx.x;
+    int loopBr = min(Br, M - i * Br);
+    matrix_block_load(Qi, Q, M, d, Br, i);
+    array_fill(Oi, 0, loopBr * d);
+    array_fill(li, 0, loopBr);
+    array_fill(mi_prev, NEGATIVE_INF, loopBr);
+    __syncthreads();
+    for (int j = 0; j < Tc; j++) {
+        int loopBc = min(Bc, N - j * Bc);
+        matrix_block_load(KiVi, K, N, d, Bc, j);
         __syncthreads();
-        for (int j = 0; j < Tc; j++) {
-            int loopBc = min(Bc, N - j * Bc);
-            matrix_block_load(KiVi, K, N, d, Bc, j);
-            __syncthreads();
-            matrix_multiply(Qi, KiVi, SiPi, loopBr, loopBc, d);
-            __syncthreads();
-            divide_by_scalar(SiPi, sqrtf(d), loopBr * loopBc);
-            __syncthreads();
-            mi_update(mi_cur, mi_prev, SiPi, loopBr, loopBc);
-            __syncthreads();
-            si_to_pi(SiPi, mi_cur, loopBr, loopBc);
-            __syncthreads();
-            li_update(li, SiPi, mi_prev, mi_cur, loopBr, loopBc);
-            matrix_block_load_transpose(KiVi, V, N, d, Bc, loopBc, j);
-            __syncthreads();
-            Oi_update(Oi, SiPi, KiVi, mi_prev, mi_cur, loopBr, loopBc, d);
-            __syncthreads();
+        matrix_multiply(Qi, KiVi, SiPi, loopBr, loopBc, d);
+        __syncthreads();
+        divide_by_scalar(SiPi, sqrtf(d), loopBr * loopBc);
+        __syncthreads();
+        mi_update(mi_cur, mi_prev, SiPi, loopBr, loopBc);
+        __syncthreads();
+        si_to_pi(SiPi, mi_cur, loopBr, loopBc);
+        __syncthreads();
+        li_update(li, SiPi, mi_prev, mi_cur, loopBr, loopBc);
+        matrix_block_load_transpose(KiVi, V, N, d, Bc, loopBc, j);
+        __syncthreads();
+        Oi_update(Oi, SiPi, KiVi, mi_prev, mi_cur, loopBr, loopBc, d);
+        __syncthreads();
 
-            // swap mi_prev / mi_cur
-            auto tmp = mi_prev;
-            mi_prev = mi_cur;
-            mi_cur = tmp;
-        }
-        Oi_scale(Oi, li, loopBr, d);
-        __syncthreads();
-        matrix_block_store(O, Oi, M, d, Br, i);
-        __syncthreads();
+        // swap mi_prev / mi_cur
+        auto tmp = mi_prev;
+        mi_prev = mi_cur;
+        mi_cur = tmp;
     }
+    Oi_scale(Oi, li, loopBr, d);
+    __syncthreads();
+    matrix_block_store(O, Oi, M, d, Br, i);
+    __syncthreads();
 }
 
 // Q, K, V, output are device pointers
 void solve(const float* Q, const float* K, const float* V, float* output, int M, int N, int d) {
-    // only for H100
-    cudaFuncSetAttribute(flash_attention_2_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, 232448);
+    // for H100
+    // cudaFuncSetAttribute(flash_attention_2_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, 232448);
+    // for Tesla T4
+    cudaFuncSetAttribute(flash_attention_2_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, 99 * 1024);
     int Bc = ceildiv(SRAM_SIZE, 4 * d);
     int Br = min(Bc, d);
     int Tr = ceildiv(M, Br);
@@ -353,7 +358,7 @@ void solve(const float* Q, const float* K, const float* V, float* output, int M,
 
     // call kernel
     const int threadsPerBlock = 1024;
-    const int blocksPerGrid = 1;
+    const int blocksPerGrid = Tr;
     flash_attention_2_kernel<<<blocksPerGrid, threadsPerBlock, shmem_needed>>>(
         Q, K, V, output, M, N, d, Br, Bc, Tr, Tc, alloc_size
     );
