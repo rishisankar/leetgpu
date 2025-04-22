@@ -15,7 +15,7 @@ l,m: Mx1
 // for H100
 // constexpr int SRAM_SIZE = 55000;
 // for Tesla T4
-constexpr int SRAM_SIZE = 7000;
+constexpr int SRAM_SIZE = 15000;
 
 // To store the vectors li and mi, we need at most
 // d entries, which is at most 1024
@@ -117,11 +117,136 @@ __device__ void array_fill(
 }
 
 /**
- * Computes matrix multiplication A*BT.
- * A is of size MxK, B is of size NxK.
+ * Computes matrix multiplication A * B.
+ * A is of size MxK, B is of size KxN.
  * Output C is of size MxN.
- * If add_to_output, A*BT is added to C instead of overwriting it.
+ * If add_to_output, A * B is added to C instead of overwriting it.
  * This is a simple version, not optimized for speed.
+ */
+// template <bool add_to_output = false>
+// __device__ void matrix_multiply(
+//     const float* A,
+//     const float* B,
+//     float* C, 
+//     int M,
+//     int N,
+//     int K
+// ) {
+//     int tid = threadIdx.x;
+//     int num_threads = blockDim.x;
+//     int num_elts = M * N;
+//     for (int i = tid; i < num_elts; i += num_threads) {
+//         int m = i / N;
+//         int n = i % N;
+//         float sum = 0;
+//         for (int k = 0; k < K; ++k) {
+//             sum += A[m * K + k] * B[k * N + n];
+//         }
+//         if constexpr (add_to_output) {
+//             C[i] += sum;
+//         } else {
+//             C[i] = sum;
+//         }
+//     }
+// }
+
+// /**
+//  * Computes matrix multiplication A*B.
+//  * A is of size MxK, B is of size KxN.
+//  * Output C is of size MxN.
+//  * If add_to_output, A*B is added to C instead of overwriting it.
+//  * A, B, C are in shared memory. This assumes a single
+//  * block of 1024 threads, and 32 threads per warp.
+//  * Implements 2d blocktiling, inspired by 
+//  * https://siboehm.com/articles/22/CUDA-MMM.
+//  * This can still be optimized by using vectorized loads/stores
+//  * as well as avoiding bank conflicts.
+//  */
+// template <bool add_to_output = false>
+// __device__ void matrix_multiply(
+//     const float* A,
+//     const float* B,
+//     float* C, 
+//     int M,
+//     int N,
+//     int K
+//  ) {
+//     int tid = threadIdx.x;
+//     int warp_id = tid / 32;
+//     int lane_id = tid % 32;
+    
+//     // block size - each thread computes a Ba x BB chunk of output.
+//     int BA = (M + 31) / 32;
+//     int BB = (N + 31) / 32;
+
+//     if (warp_id * BA >= M || lane_id * BB >= N) {
+//         return;
+//     }
+
+//     // max 255 registers per thread
+//     constexpr int T = 1;
+//     float Areg[T] = {0.0};
+//     float Breg[T] = {0.0};
+
+//     int chunksA = (BA + T - 1) / T;
+//     int chunksB = (BB + T - 1) / T;
+
+//     for (int chunkA = 0; chunkA < chunksA; ++chunkA) {
+//         int TchunkA = min(T, BA - chunkA * T);
+//         for (int chunkB = 0; chunkB < chunksB; ++chunkB) {
+//             int TchunkB = min(T, BB - chunkB * T);
+
+//             float Creg[T * T] = {0.0};
+            
+//             for (int i = 0; i < K; i++) {
+//                 // load smem to registers
+//                 for (int j = 0; j < TchunkA; j++) {
+//                     // Areg[i] = A[BA * warp_id + T * chunkA + j][i];
+//                     Areg[j] = A[(BA * warp_id + T * chunkA + j) * K + i];
+//                 }
+//                 for (int j = 0; j < TchunkB; j++) {
+//                     // Breg[i] = B[i][BB * lane_id + T * chunkB + j];
+//                     Breg[j] = B[i * N + BB * lane_id + T * chunkB + j];
+//                 }
+//                 for (int resA = 0; resA < TchunkA; resA++) {
+//                     for (int resB = 0; resB < TchunkB; resB++) {
+//                         // Creg[resA][resB] += Areg[resA] * Breg[resB];
+//                         Creg[resA * TchunkB + resB] += Areg[resA] * Breg[resB];
+//                     }
+//                 }
+//             }
+            
+//             for (int i = 0; i < TchunkA; i++) {
+//                 for (int j = 0; j < TchunkB; j++) {
+//                     // store Creg to C
+//                     // C[BA * warp_id + T * chunkA + i][BB * lane_id + T * chunkB + j] = Creg[i][j];
+//                     int CIdx = (BA * warp_id + T * chunkA + i) * N + BB * lane_id + T * chunkB + j;
+//                     int CregIdx = i * TchunkB + j;
+//                     if constexpr (add_to_output) {
+//                         C[CIdx] += Creg[CregIdx];
+//                     } else {
+//                         C[CIdx] = Creg[CregIdx];
+//                     }
+//                 }
+//             }
+
+//         }
+//     }
+
+
+//  }
+
+/**
+ * Computes matrix multiplication A*B.
+ * A is of size MxK, B is of size KxN.
+ * Output C is of size MxN.
+ * If add_to_output, A*B is added to C instead of overwriting it.
+ * A, B, C are in shared memory. This assumes a single
+ * block of 1024 threads, and 32 threads per warp.
+ * Implements 2d blocktiling, inspired by 
+ * https://siboehm.com/articles/22/CUDA-MMM.
+ * This can still be optimized by using vectorized loads/stores
+ * as well as avoiding bank conflicts.
  */
 template <bool add_to_output = false>
 __device__ void matrix_multiply(
@@ -133,19 +258,41 @@ __device__ void matrix_multiply(
     int K
 ) {
     int tid = threadIdx.x;
-    int num_threads = blockDim.x;
-    int num_elts = M * N;
-    for (int i = tid; i < num_elts; i += num_threads) {
-        int m = i / N;
-        int n = i % N;
-        float sum = 0;
-        for (int k = 0; k < K; ++k) {
-            sum += A[m * K + k] * B[n * K + k];
-        }
-        if constexpr (add_to_output) {
-            C[i] += sum;
-        } else {
-            C[i] = sum;
+    int warp_id = tid / 32;
+    int lane_id = tid % 32;
+    constexpr int num_warps = 32;
+
+    constexpr int T = 4;
+    for (int sr = T * warp_id; sr < M; sr += num_warps * T) {
+        int BA = min(T, M - sr);
+        for (int sc = T * lane_id; sc < N; sc += 32 * T) {
+            int BB = min(T, N - sc);
+
+            float Areg[T] = {0.0};
+            float Breg[T] = {0.0};
+            float Creg[T*T] = {0.0};
+            for (int k = 0; k < K; k++) {
+                for (int i = 0; i < BA; i++) {
+                    Areg[i] = A[(sr + i) * K + k];
+                }
+                for (int i = 0; i < BB; i++) {
+                    Breg[i] = B[k * N + sc + i];
+                }
+                for (int i = 0; i < BA; i++) {
+                    for (int j = 0; j < BB; j++) {
+                        Creg[i * BB + j] += Areg[i] * Breg[j];
+                    }
+                }
+            }
+            for (int i = 0; i < BA; i++) {
+                for (int j = 0; j < BB; j++) {
+                    if constexpr (add_to_output) {
+                        C[(sr + i) * N + (sc + j)] += Creg[i * BB + j];
+                    } else {
+                        C[(sr + i) * N + (sc + j)] = Creg[i * BB + j];
+                    }
+                }
+            }
         }
     }
 }
@@ -315,7 +462,8 @@ __global__ void flash_attention_2_kernel(
     __syncthreads();
     for (int j = 0; j < Tc; j++) {
         int loopBc = min(Bc, N - j * Bc);
-        matrix_block_load(KiVi, K, N, d, Bc, j);
+        // matrix_block_load(KiVi, K, N, d, Bc, j);
+        matrix_block_load_transpose(KiVi, K, N, d, Bc, loopBc, j);
         __syncthreads();
         matrix_multiply(Qi, KiVi, SiPi, loopBr, loopBc, d);
         __syncthreads();
@@ -326,7 +474,8 @@ __global__ void flash_attention_2_kernel(
         si_to_pi(SiPi, mi_cur, loopBr, loopBc);
         __syncthreads();
         li_update(li, SiPi, mi_prev, mi_cur, loopBr, loopBc);
-        matrix_block_load_transpose(KiVi, V, N, d, Bc, loopBc, j);
+        // matrix_block_load_transpose(KiVi, V, N, d, Bc, loopBc, j);
+        matrix_block_load(KiVi, V, N, d, Bc, j);
         __syncthreads();
         Oi_update(Oi, SiPi, KiVi, mi_prev, mi_cur, loopBr, loopBc, d);
         __syncthreads();
