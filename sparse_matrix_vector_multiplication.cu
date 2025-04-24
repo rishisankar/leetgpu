@@ -45,7 +45,5 @@ void solve(const float* A, const float* x, float* y, int M, int N, int nnz) {
     int num_threads = 1024;
     int num_blocks = M;
     // TODO figure out how to use nnz?
-    // TODO: judge broken? even vanilla matmul code fails
-    // with AssertionError (A.shape == (M, N))
     kernel<<<num_blocks, num_threads>>>(A, x, y, M, N);
 } 
