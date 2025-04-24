@@ -18,6 +18,7 @@ My solutions to CUDA challenges on https://leetgpu.com/
 [Dot Product](https://leetgpu.com/challenges/dot-product) | [Link](./dot_product.cu) | Medium |
 [Sparse Matrix-Vector Multiplication](https://leetgpu.com/challenges/sparse-matrix-vector-multiplication) | [Link](./sparse_matrix_vector_multiplication.cu) | Medium |
 [Softmax Attention](https://leetgpu.com/challenges/softmax-attention) | [Link](./softmax_attention.cu) | Medium |
+[2D Convolution](https://leetgpu.com/challenges/2d-convolution) | [Link](./2d_convolution.cu) | Medium |
 [Categorical Cross-Entropy Loss](https://leetgpu.com/challenges/categorical-cross-entropy-loss) | [Link](./categorical_cross_entropy_loss.cu) | Medium |
 [Password Cracking (FNV-1a)](https://leetgpu.com/challenges/password-cracking-fnv-1a) | [Link](./password_cracking_fnv_1a.cu) | Medium |
 [Mean Squared Error](https://leetgpu.com/challenges/mean-squared-error) | [Link](./mean_squared_error.cu) | Medium |
