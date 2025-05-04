@@ -5,13 +5,16 @@
 using namespace nvcuda;
 
 constexpr int BW = 64;
-constexpr int NUM_WARPS = 16;
+constexpr int NUM_WARPS = 4;
 
 /*
 Approach:
 - uses tensor cores to multiply 16x16 matrices
 - 16 warps per block each handling a 16x16 region
 - blocks handle a 64x64 tile of output
+
+Only seems to work on H100 (TLE on the rest?). But it's the fastest solution on the site...
+Unsure why it TLEs on the others...
 */
 
 template <bool isKEven>
@@ -31,8 +34,8 @@ __global__ void matmul_kernel(const half* A, const half* B, half* C, int M, int 
 
     int tid = threadIdx.x;
     int warpId = threadIdx.x / 32;
-    int warpRow = warpId / 4;
-    int warpCol = warpId % 4;
+    int warpRow = warpId / 2;
+    int warpCol = warpId % 2;
 
     int numBlocksN = (N+BW-1)/BW;
     int numBlocksK = (K+BW-1)/BW;
@@ -41,10 +44,12 @@ __global__ void matmul_kernel(const half* A, const half* B, half* C, int M, int 
     int blockX = blockId / numBlocksN;
     int blockY = blockId % numBlocksN;
 
-    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frag;
-    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major> b_frag;
-    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
-    wmma::fill_fragment(c_frag, 0.0f);
+    wmma::fragment<wmma::matrix_a, 16, 16, 16, half, wmma::row_major> a_frag1, a_frag2;
+    wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major> b_frag1, b_frag2;
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag[4];
+    for (int i = 0; i < 4; i++) {
+        wmma::fill_fragment(c_frag[i], 0.0f);
+    }
 
     for (int iter = 0; iter < numBlocksK; iter++) {
         // if k is even, able to load 2 halfs a time (20% speedup on nsight compute)
@@ -84,19 +89,33 @@ __global__ void matmul_kernel(const half* A, const half* B, half* C, int M, int 
         // make sure all loads finished
         __syncthreads();
         
-        half *SA_warp_ptr = SA + 16 * BW * warpRow;
-        half *SB_warp_ptr = SB + 16 * warpCol;
+        half *SA_warp_ptr1 = SA + 32 * BW * warpRow;
+        half *SA_warp_ptr2 = SA_warp_ptr1 + 16 * BW;
+        half *SB_warp_ptr1 = SB + 32 * warpCol;
+        half *SB_warp_ptr2 = SB_warp_ptr1 + 16;
         for (int i = 0; i < 4; i++) {
-            wmma::load_matrix_sync(a_frag, SA_warp_ptr, BW);
-            wmma::load_matrix_sync(b_frag, SB_warp_ptr, BW);
-            wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
-            SA_warp_ptr += 16;
-            SB_warp_ptr += 16 * BW;
+            wmma::load_matrix_sync(a_frag1, SA_warp_ptr1, BW);
+            wmma::load_matrix_sync(a_frag2, SA_warp_ptr2, BW);
+            wmma::load_matrix_sync(b_frag1, SB_warp_ptr1, BW);
+            wmma::load_matrix_sync(b_frag2, SB_warp_ptr2, BW);
+
+            wmma::mma_sync(c_frag[0], a_frag1, b_frag1, c_frag[0]);
+            wmma::mma_sync(c_frag[1], a_frag1, b_frag2, c_frag[1]);
+            wmma::mma_sync(c_frag[2], a_frag2, b_frag1, c_frag[2]);
+            wmma::mma_sync(c_frag[3], a_frag2, b_frag2, c_frag[3]);
+
+            SA_warp_ptr1 += 16;
+            SA_warp_ptr2 += 16;
+            SB_warp_ptr1 += 16 * BW;
+            SB_warp_ptr2 += 16 * BW;
         }
     }
 
-    float *SC_warp_ptr = SC + 16 * BW * warpRow + 16 * warpCol;
-    wmma::store_matrix_sync(SC_warp_ptr, c_frag, BW, wmma::mem_row_major);
+    float *SC_warp_ptr = SC + 32 * BW * warpRow + 32 * warpCol;
+    wmma::store_matrix_sync(SC_warp_ptr, c_frag[0], BW, wmma::mem_row_major);
+    wmma::store_matrix_sync(SC_warp_ptr + 16, c_frag[1], BW, wmma::mem_row_major);
+    wmma::store_matrix_sync(SC_warp_ptr + 16 * BW, c_frag[2], BW, wmma::mem_row_major);
+    wmma::store_matrix_sync(SC_warp_ptr + 16 * (BW+1), c_frag[3], BW, wmma::mem_row_major);
 
     // finally store back to global
     __syncthreads();  // make sure all stores finished
